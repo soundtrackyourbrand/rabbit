@@ -202,7 +202,14 @@ func (r *Rabbit) StartListening() <-chan amqp.Delivery {
 			}
 
 			for d := range deliveries {
-				out <- d
+				select {
+				case out <- d:
+				case <-r.context.Done():
+					r.logger.Infof("shutting down listener")
+					session.Close()
+					return
+
+				}
 			}
 
 			session.Close()
