@@ -59,7 +59,13 @@ func (s *session) Close() {
 	}
 }
 
-type Rabbit struct {
+type Rabbit interface {
+	StartListening() <-chan amqp.Delivery
+}
+
+var _ Rabbit = (*RabbitImpl)(nil)
+
+type RabbitImpl struct {
 	context     context.Context
 	authority   string
 	exchange    exchange
@@ -70,10 +76,10 @@ type Rabbit struct {
 	logger      logger
 }
 
-type OptionFunc func(r *Rabbit)
+type OptionFunc func(r *RabbitImpl)
 
-func New(options ...OptionFunc) *Rabbit {
-	r := &Rabbit{}
+func New(options ...OptionFunc) Rabbit {
+	r := &RabbitImpl{}
 
 	for _, fn := range options {
 		fn(r)
@@ -83,25 +89,25 @@ func New(options ...OptionFunc) *Rabbit {
 }
 
 func OptionContext(ctx context.Context) OptionFunc {
-	return func(r *Rabbit) {
+	return func(r *RabbitImpl) {
 		r.context = ctx
 	}
 }
 
 func OptionAuthority(authority string) OptionFunc {
-	return func(r *Rabbit) {
+	return func(r *RabbitImpl) {
 		r.authority = authority
 	}
 }
 
 func OptionLogger(logger logger) OptionFunc {
-	return func(r *Rabbit) {
+	return func(r *RabbitImpl) {
 		r.logger = logger
 	}
 }
 
 func OptionExchange(name, kind string, durable, autoDelete, internal, noWait bool) OptionFunc {
-	return func(r *Rabbit) {
+	return func(r *RabbitImpl) {
 		r.exchange = exchange{
 			name:       name,
 			kind:       kind,
@@ -114,7 +120,7 @@ func OptionExchange(name, kind string, durable, autoDelete, internal, noWait boo
 }
 
 func OptionConsume(consumeTag string, noAck, exclusive, noLocal, noWait bool) OptionFunc {
-	return func(r *Rabbit) {
+	return func(r *RabbitImpl) {
 		r.consume = consume{
 			consumeTag: consumeTag,
 			noAck:      noAck,
@@ -126,7 +132,7 @@ func OptionConsume(consumeTag string, noAck, exclusive, noLocal, noWait bool) Op
 }
 
 func OptionQueue(name string, durable, autoDelete, exclusive, noWait bool) OptionFunc {
-	return func(r *Rabbit) {
+	return func(r *RabbitImpl) {
 		r.queue = queue{
 			name:       name,
 			durable:    durable,
@@ -138,7 +144,7 @@ func OptionQueue(name string, durable, autoDelete, exclusive, noWait bool) Optio
 }
 
 func OptionQueueBind(noWait bool) OptionFunc {
-	return func(r *Rabbit) {
+	return func(r *RabbitImpl) {
 		r.queueBind = queueBind{
 			noWait: noWait,
 		}
@@ -146,12 +152,12 @@ func OptionQueueBind(noWait bool) OptionFunc {
 }
 
 func OptionBindingKeys(keys []string) OptionFunc {
-	return func(r *Rabbit) {
+	return func(r *RabbitImpl) {
 		r.bindingKeys = keys
 	}
 }
 
-func (r *Rabbit) StartListening() <-chan amqp.Delivery {
+func (r *RabbitImpl) StartListening() <-chan amqp.Delivery {
 	req, res := redial(r)
 
 	out := make(chan amqp.Delivery, 100)
@@ -219,7 +225,7 @@ func (r *Rabbit) StartListening() <-chan amqp.Delivery {
 	return out
 }
 
-func redial(r *Rabbit) (request chan<- bool, response <-chan session) {
+func redial(r *RabbitImpl) (request chan<- bool, response <-chan session) {
 	req := make(chan bool)
 	res := make(chan session)
 
@@ -242,7 +248,7 @@ func redial(r *Rabbit) (request chan<- bool, response <-chan session) {
 	return req, res
 }
 
-func connect(r *Rabbit, out chan<- session) {
+func connect(r *RabbitImpl, out chan<- session) {
 	backoff := 0.0
 
 	exp := func(b float64) float64 {
@@ -303,6 +309,5 @@ func connect(r *Rabbit, out chan<- session) {
 			r.logger.Infof("shutting down reconnector")
 			return
 		}
-
 	}
 }
