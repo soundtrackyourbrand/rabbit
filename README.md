@@ -7,8 +7,8 @@ amqp connection setup for go apps
 ```go
 // Create
 r := rabbit.New(
-  rabbit.OptionContext(ctx),
-  rabbit.OptionAuthority(uri),
+  rabbit.WithContext(ctx),
+  rabbit.WithAuthority(uri),
   // More options available
 )
 

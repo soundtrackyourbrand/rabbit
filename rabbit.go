@@ -90,25 +90,25 @@ func New(options ...OptionFunc) Rabbit {
 	return r
 }
 
-func OptionContext(context context.Context) OptionFunc {
+func WithContext(context context.Context) OptionFunc {
 	return func(r *RabbitImpl) {
 		r.Context = context
 	}
 }
 
-func OptionAuthority(authority string) OptionFunc {
+func WithAuthority(authority string) OptionFunc {
 	return func(r *RabbitImpl) {
 		r.authority = authority
 	}
 }
 
-func OptionLogger(logger logger) OptionFunc {
+func WithLogger(logger logger) OptionFunc {
 	return func(r *RabbitImpl) {
 		r.Logger = logger
 	}
 }
 
-func OptionExchange(name, kind string, durable, autoDelete, internal, noWait bool) OptionFunc {
+func WithExchange(name, kind string, durable, autoDelete, internal, noWait bool) OptionFunc {
 	return func(r *RabbitImpl) {
 		r.exchange = exchange{
 			name:       name,
@@ -121,7 +121,7 @@ func OptionExchange(name, kind string, durable, autoDelete, internal, noWait boo
 	}
 }
 
-func OptionConsume(consumeTag string, noAck, exclusive, noLocal, noWait bool) OptionFunc {
+func WithConsume(consumeTag string, noAck, exclusive, noLocal, noWait bool) OptionFunc {
 	return func(r *RabbitImpl) {
 		r.consume = consume{
 			consumeTag: consumeTag,
@@ -133,7 +133,7 @@ func OptionConsume(consumeTag string, noAck, exclusive, noLocal, noWait bool) Op
 	}
 }
 
-func OptionQueue(name string, durable, autoDelete, exclusive, noWait bool) OptionFunc {
+func WithQueue(name string, durable, autoDelete, exclusive, noWait bool) OptionFunc {
 	return func(r *RabbitImpl) {
 		r.queue = queue{
 			name:       name,
@@ -145,7 +145,7 @@ func OptionQueue(name string, durable, autoDelete, exclusive, noWait bool) Optio
 	}
 }
 
-func OptionQueueBind(noWait bool) OptionFunc {
+func WithQueueBind(noWait bool) OptionFunc {
 	return func(r *RabbitImpl) {
 		r.queueBind = queueBind{
 			noWait: noWait,
@@ -153,7 +153,7 @@ func OptionQueueBind(noWait bool) OptionFunc {
 	}
 }
 
-func OptionBindingKeys(keys []string) OptionFunc {
+func WithBindingKeys(keys []string) OptionFunc {
 	return func(r *RabbitImpl) {
 		r.bindingKeys = keys
 	}
