@@ -66,12 +66,13 @@ type Rabbit interface {
 var _ Rabbit = (*RabbitImpl)(nil)
 
 type RabbitImpl struct {
-	authority   string
-	exchange    exchange
-	queue       queue
-	queueBind   queueBind
-	bindingKeys []string
-	consume     consume
+	authority     string
+	exchange      exchange
+	queue         queue
+	queueBind     queueBind
+	bindingKeys   []string
+	prefetchCount int
+	consume       consume
 
 	Context context.Context `inject:""`
 	Logger  logger          `inject:""`
@@ -155,6 +156,12 @@ func WithQueueBind(noWait bool) OptionFunc {
 func WithBindingKeys(keys []string) OptionFunc {
 	return func(r *RabbitImpl) {
 		r.bindingKeys = keys
+	}
+}
+
+func WithQos(prefetchCount int) OptionFunc {
+	return func(r *RabbitImpl) {
+		r.prefetchCount = prefetchCount
 	}
 }
 
@@ -283,6 +290,18 @@ func connect(r *RabbitImpl, out chan<- session) {
 			continue
 		}
 
+		if r.prefetchCount > 0 {
+			err = channel.Qos(r.prefetchCount, 0, true)
+
+			if err != nil {
+				channel.Close()
+				conn.Close()
+				backoff = exp(backoff)
+				r.Logger.Errorf("failed to set channel Qos, will retry in: %f seconds", backoff)
+				continue
+			}
+		}
+
 		err = channel.ExchangeDeclare(
 			r.exchange.name,
 			r.exchange.kind,
@@ -292,6 +311,7 @@ func connect(r *RabbitImpl, out chan<- session) {
 			r.exchange.noWait,
 			nil,
 		)
+
 		if err != nil {
 			channel.Close()
 			conn.Close()
