@@ -179,7 +179,7 @@ func (r *RabbitImpl) StartListening() <-chan amqp.Delivery {
 
 			queue, err := session.channel.QueueDeclare(r.queue.name, r.queue.durable, r.queue.autoDelete, r.queue.exclusive, r.queue.noWait, nil)
 			if err != nil {
-				r.Logger.Errorf("failed to declare queue: %s", queue.Name)
+				r.Logger.Errorf("failed to declare queue '%s' durable(%t) autoDelete(%t) exclusive(%t) noWait(%t)", r.queue.name, r.queue.durable, r.queue.autoDelete, r.queue.exclusive, r.queue.noWait)
 				session.Close()
 				continue
 			}
