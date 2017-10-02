@@ -165,6 +165,55 @@ func WithQos(prefetchCount int) OptionFunc {
 	}
 }
 
+type publishingRequest struct {
+	Publishing amqp.Publishing
+	Exchange   string
+	RoutingKey string
+	reply      chan error
+}
+
+type PublishingChannel chan publishingRequest
+
+func (pc PublishingChannel) Publish(exchange, routingKey string, msg amqp.Publishing) error {
+	req := publishingRequest{
+		Publishing: msg,
+		Exchange:   exchange,
+		RoutingKey: routingKey,
+		reply:      make(chan error),
+	}
+
+	pc <- req
+
+	return <-req.reply
+}
+
+func (r *RabbitImpl) StartPublishing() PublishingChannel {
+	req, res := redial(r)
+
+	out := make(PublishingChannel)
+
+	go func() {
+		defer close(out)
+
+		for {
+			req <- true
+			session := <-res
+
+			select {
+			case msg := <-out:
+				if err := session.channel.Publish(msg.Exchange, msg.RoutingKey, false, false, msg.Publishing); err != nil {
+					session.Close()
+					continue
+				}
+			case <-r.Context.Done():
+				return
+			}
+		}
+	}()
+
+	return out
+}
+
 func (r *RabbitImpl) StartListening() <-chan amqp.Delivery {
 	req, res := redial(r)
 
