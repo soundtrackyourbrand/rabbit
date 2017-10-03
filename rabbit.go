@@ -203,9 +203,11 @@ func (r *RabbitImpl) StartPublishing() PublishingChannel {
 			select {
 			case msg := <-out:
 				if err := session.channel.Publish(msg.Exchange, msg.RoutingKey, false, false, msg.Publishing); err != nil {
+					msg.reply <- err
 					session.Close()
 					continue
 				}
+				close(msg.reply)
 			case <-r.Context.Done():
 				return
 			}
