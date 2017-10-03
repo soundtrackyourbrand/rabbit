@@ -61,6 +61,7 @@ func (s *session) Close() {
 
 type Rabbit interface {
 	StartListening() <-chan amqp.Delivery
+	StartPublishing() PublishingChannel
 }
 
 var _ Rabbit = (*RabbitImpl)(nil)
