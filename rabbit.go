@@ -175,7 +175,7 @@ type publishingRequest struct {
 
 type PublishingChannel chan publishingRequest
 
-func (pc PublishingChannel) Publish(exchange, routingKey string, msg amqp.Publishing) error {
+func (pc PublishingChannel) Publish(ctx context.Context, exchange, routingKey string, msg amqp.Publishing) error {
 	req := publishingRequest{
 		Publishing: msg,
 		Exchange:   exchange,
@@ -183,9 +183,18 @@ func (pc PublishingChannel) Publish(exchange, routingKey string, msg amqp.Publis
 		reply:      make(chan error),
 	}
 
-	pc <- req
+	select {
+	case pc <- req:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 
-	return <-req.reply
+	select {
+	case err := <-req.reply:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 func (r *RabbitImpl) StartPublishing() PublishingChannel {
