@@ -200,17 +200,16 @@ func (r *RabbitImpl) StartPublishing() PublishingChannel {
 			req <- true
 			session := <-res
 
-			select {
-			case msg := <-out:
+			for msg := range out {
 				if err := session.channel.Publish(msg.Exchange, msg.RoutingKey, false, false, msg.Publishing); err != nil {
 					msg.reply <- err
-					session.Close()
-					continue
+				} else {
+					close(msg.reply)
 				}
-				close(msg.reply)
-			case <-r.Context.Done():
-				return
 			}
+
+			r.Logger.Infof("shutting down publisher")
+			session.Close()
 		}
 	}()
 
