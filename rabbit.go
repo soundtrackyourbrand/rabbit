@@ -212,6 +212,7 @@ func (r *RabbitImpl) StartPublishing() PublishingChannel {
 			for msg := range out {
 				if err := session.channel.Publish(msg.Exchange, msg.RoutingKey, false, false, msg.Publishing); err != nil {
 					msg.reply <- err
+					break
 				} else {
 					close(msg.reply)
 				}
