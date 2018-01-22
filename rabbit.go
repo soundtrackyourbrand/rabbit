@@ -1,6 +1,7 @@
 package rabbit
 
 import (
+	"fmt"
 	"math"
 	"time"
 
@@ -8,11 +9,13 @@ import (
 	"golang.org/x/net/context"
 )
 
+// Logger satisfies the uber/zap "standard" specifying a message followed by structured keys and values
+// e.g. log.Debugw("got a new message", "id", id)
 type logger interface {
-	Debugf(format string, args ...interface{})
-	Infof(format string, args ...interface{})
-	Warningf(format string, args ...interface{})
-	Errorf(format string, args ...interface{})
+	Debugw(msg string, keysAndValues ...interface{})
+	Infow(msg string, keysAndValues ...interface{})
+	Warningw(msg string, keysAndValues ...interface{})
+	Errorw(msg string, keysAndValues ...interface{})
 }
 
 type queue struct {
@@ -218,7 +221,7 @@ func (r *RabbitImpl) StartPublishing() PublishingChannel {
 				}
 			}
 
-			r.Logger.Infof("shutting down publisher")
+			r.Logger.Infow("shutting down publisher")
 			session.Close()
 		}
 	}()
@@ -240,7 +243,7 @@ func (r *RabbitImpl) StartListening() <-chan amqp.Delivery {
 
 			queue, err := session.channel.QueueDeclare(r.queue.name, r.queue.durable, r.queue.autoDelete, r.queue.exclusive, r.queue.noWait, nil)
 			if err != nil {
-				r.Logger.Errorf("failed to declare queue '%s' durable(%t) autoDelete(%t) exclusive(%t) noWait(%t)", r.queue.name, r.queue.durable, r.queue.autoDelete, r.queue.exclusive, r.queue.noWait)
+				r.Logger.Errorw(fmt.Sprintf("failed to declare queue '%s' durable(%t) autoDelete(%t) exclusive(%t) noWait(%t)", r.queue.name, r.queue.durable, r.queue.autoDelete, r.queue.exclusive, r.queue.noWait))
 				session.Close()
 				continue
 			}
@@ -254,7 +257,7 @@ func (r *RabbitImpl) StartListening() <-chan amqp.Delivery {
 					nil,
 				)
 				if err != nil {
-					r.Logger.Errorf("failed to bind to key: %s, error: %s", key, err)
+					r.Logger.Errorw("failed to bind to key", "key", key, "error", err)
 					session.Close()
 					continue
 				}
@@ -270,7 +273,7 @@ func (r *RabbitImpl) StartListening() <-chan amqp.Delivery {
 				nil,
 			)
 			if err != nil {
-				r.Logger.Errorf("failed to consume from queue %s, error: %s", queue.Name, err)
+				r.Logger.Errorw("failed to consume from queue", "queue_name", queue.Name, "error", err)
 
 				session.Close()
 				continue
@@ -280,7 +283,7 @@ func (r *RabbitImpl) StartListening() <-chan amqp.Delivery {
 				select {
 				case out <- d:
 				case <-r.Context.Done():
-					r.Logger.Infof("shutting down listener")
+					r.Logger.Infow("shutting down listener")
 					session.Close()
 					return
 
@@ -306,7 +309,7 @@ func redial(r *RabbitImpl) (request chan<- bool, response <-chan session) {
 			select {
 			case <-req:
 			case <-r.Context.Done():
-				r.Logger.Infof("shutting down session reconnector")
+				r.Logger.Infow("shutting down session reconnector")
 				return
 			}
 
@@ -332,14 +335,14 @@ func connect(r *RabbitImpl, out chan<- session) {
 		select {
 		case <-time.After(time.Duration(backoff) * time.Second):
 		case <-r.Context.Done():
-			r.Logger.Infof("shutting down session reconnector.")
+			r.Logger.Infow("shutting down session reconnector.")
 			return
 		}
 
 		conn, err := amqp.Dial(r.authority)
 		if err != nil {
 			backoff = exp(backoff)
-			r.Logger.Errorf("failed to connect to AMQP, will retry in: %f seconds", backoff)
+			r.Logger.Errorw(fmt.Sprintf("failed to connect to AMQP, will retry in: %f seconds", backoff), "backoff", backoff)
 			continue
 		}
 
@@ -347,7 +350,7 @@ func connect(r *RabbitImpl, out chan<- session) {
 		if err != nil {
 			conn.Close()
 			backoff = exp(backoff)
-			r.Logger.Errorf("failed to get channel from AMQP, will retry in: %f seconds", backoff)
+			r.Logger.Errorw(fmt.Sprintf("failed to get channel from AMQP, will retry in: %f seconds", backoff), "backoff", backoff)
 			continue
 		}
 
@@ -358,7 +361,7 @@ func connect(r *RabbitImpl, out chan<- session) {
 				channel.Close()
 				conn.Close()
 				backoff = exp(backoff)
-				r.Logger.Errorf("failed to set channel Qos, will retry in: %f seconds", backoff)
+				r.Logger.Errorw(fmt.Sprintf("failed to set channel Qos, will retry in: %f seconds", backoff), "backoff", backoff)
 				continue
 			}
 		}
@@ -377,7 +380,7 @@ func connect(r *RabbitImpl, out chan<- session) {
 			channel.Close()
 			conn.Close()
 			backoff = exp(backoff)
-			r.Logger.Errorf("failed to declare exchange in AMQP, will retry in: %f seconds, error: %s", backoff, err)
+			r.Logger.Errorw(fmt.Sprintf("failed to declare exchange in AMQP, will retry in: %f seconds", backoff), "error", err, "backoff", backoff)
 			continue
 		}
 
@@ -385,10 +388,10 @@ func connect(r *RabbitImpl, out chan<- session) {
 
 		select {
 		case out <- session{conn, channel}:
-			r.Logger.Infof("connected to AMQP")
+			r.Logger.Infow("connected to AMQP")
 			return
 		case <-r.Context.Done():
-			r.Logger.Infof("shutting down reconnector")
+			r.Logger.Infow("shutting down reconnector")
 			return
 		}
 	}
