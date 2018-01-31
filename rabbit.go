@@ -10,11 +10,11 @@ import (
 )
 
 // Logger satisfies the uber/zap "standard" specifying a message followed by structured keys and values
-// e.g. log.Debugw("got a new message", "id", id)
+// e.g. log.Debugw("got a new message", "message_id", id)
 type logger interface {
 	Debugw(msg string, keysAndValues ...interface{})
 	Infow(msg string, keysAndValues ...interface{})
-	Warningw(msg string, keysAndValues ...interface{})
+	Warnw(msg string, keysAndValues ...interface{})
 	Errorw(msg string, keysAndValues ...interface{})
 }
 
