@@ -342,7 +342,7 @@ func connect(r *RabbitImpl, out chan<- session) {
 		conn, err := amqp.Dial(r.authority)
 		if err != nil {
 			backoff = exp(backoff)
-			r.Logger.Errorw(fmt.Sprintf("failed to connect to AMQP, will retry in: %f seconds", backoff), "backoff", backoff)
+			r.Logger.Errorw(fmt.Sprintf("failed to connect to AMQP, will retry in: %f seconds", backoff), "error", err, "backoff", backoff)
 			continue
 		}
 
@@ -350,7 +350,7 @@ func connect(r *RabbitImpl, out chan<- session) {
 		if err != nil {
 			conn.Close()
 			backoff = exp(backoff)
-			r.Logger.Errorw(fmt.Sprintf("failed to get channel from AMQP, will retry in: %f seconds", backoff), "backoff", backoff)
+			r.Logger.Errorw(fmt.Sprintf("failed to get channel from AMQP, will retry in: %f seconds", backoff), "error", err, "backoff", backoff)
 			continue
 		}
 
@@ -361,7 +361,7 @@ func connect(r *RabbitImpl, out chan<- session) {
 				channel.Close()
 				conn.Close()
 				backoff = exp(backoff)
-				r.Logger.Errorw(fmt.Sprintf("failed to set channel Qos, will retry in: %f seconds", backoff), "backoff", backoff)
+				r.Logger.Errorw(fmt.Sprintf("failed to set channel Qos, will retry in: %f seconds", backoff), "error", err, "backoff", backoff)
 				continue
 			}
 		}
